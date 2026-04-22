@@ -1,4 +1,4 @@
-# option_forge
+# Option Forge Claude Skill
 
 Gives Claude the ability to write Lua strategies for [OptionForge](https://option-forge.com) — either via a portable claude.ai Skill, or via a `/strategy` slash command in Claude Code.
 
