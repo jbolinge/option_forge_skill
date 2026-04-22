@@ -9,7 +9,8 @@ Gives Claude the ability to write Lua strategies for [OptionForge](https://optio
 - `strategies/` — finished `.lua` strategies
 - `docs/` — API cheat sheet (`brief_api.txt`), full reference (`api_docs.txt`), and runnable reference strategies
 - `skills/option-forge-strategy/` — portable [claude.ai Skill](https://www.anthropic.com/news/skills) bundle
-- `skills/build.sh` — packages the Skill into an uploadable zip
+- `skills/option-forge-strategy.zip` — prebuilt, ready-to-upload Skill zip (checked in)
+- `skills/build.sh` — rebuilds the zip from `skills/option-forge-strategy/` and the latest `docs/`
 - `.claude/commands/strategy.md` — `/strategy` slash command for Claude Code users who clone this repo
 - `CLAUDE.md` — project guidance for Claude Code
 
@@ -17,15 +18,17 @@ Gives Claude the ability to write Lua strategies for [OptionForge](https://optio
 
 The Skill lets Claude on claude.ai draft OptionForge strategies without the local repo.
 
-### 1. Build the zip
+### 1. Get the zip
 
-Requires `bash` and `zip` on PATH.
+A prebuilt zip is checked into the repo at `skills/option-forge-strategy.zip` — grab that and skip to step 2.
+
+If you've edited the Skill sources under `skills/option-forge-strategy/` or updated `docs/`, rebuild it (requires `bash` and `zip` on PATH):
 
 ```sh
 ./skills/build.sh
 ```
 
-This copies the latest `docs/brief_api.txt` and reference `.lua` files into the bundle and writes `skills/option-forge-strategy.zip`. The zip is git-ignored — rebuild and re-upload whenever the API docs or reference strategies change.
+This copies the latest `docs/brief_api.txt` and reference `.lua` files into the bundle and overwrites `skills/option-forge-strategy.zip`.
 
 ### 2. Upload to claude.ai
 
