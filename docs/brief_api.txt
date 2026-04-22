@@ -1,0 +1,80 @@
+--Portfolio
+porfolio:new_trade(tag: Option[string]) -- create a new (empty trade), optionally tagged
+portfolio.n_open_trades -- number: number of open trades
+portfolio:trades(tag: Option[string]) -- iterator: all open trades, optionally filtered by exact tag
+portfolio:history() -- table: PnL history of the portfolio ([1])
+portfolio:pnl() -- number
+portfolio:value() -- number: portfolio value (pnl + starting cash)
+portfolio:count(name: string, inc: number) -- increment the count of the key named name by inc (for custom events)
+portfolio:delta()/portfolio:gamma()/portfolio:vega()/portfolio:theta() -- number
+portfolio:iv() -- number: vega-weighted average IV across all open legs
+portfolio:last_trade() -- Trade: most recently opened trade
+portfolio:trade(id: number) -- Trade: trade by id
+-- Trade (note the . vs : syntax)
+trade.cash -- number: cash used or made from trade (negative for debit)
+trade.mid -- number: current sum of all leg mid prices
+trade.delta or trade.gamma or trade.vega or trade.theta -- number: trade greeks
+trade.iv -- number: vega-weighted average IV across open legs (for PnL attribution: trade.vega * Δ(trade.iv) ≈ vega bucket)
+trade.dit or trade.dte -- number: maximum dit / minimum DTE of the trade
+trade.id -- number: id of the trade (unique per run start at 0 and increments)
+trade.pnl -- number: PnL of the trade
+trade:adjust(selector, name: string) -- bool: adjust leg of a trade
+-- e.g. use the leg named LP to adjust so that the full trade delta is -5
+trade:adjust(TradeDelta(-5), "LP") 
+trade:add_leg(TradeLeg) -- add a leg to the trade. leg names must be unique per open trade.
+trade:close(Option[string], Option[table[string=>number]]) -- close all legs, or partially close named legs when table is provided. passing reason also increments User Counts for that key.
+trade:close_leg(name: string, option[erase]) -- close the leg named name. if erase is true, it's like the leg never existed
+trade:erase(Option[string]) -- erase the trade and any commissions. passing a reason increments that User Counts key, otherwise "erase" is incremented.
+trade:leg(name: string) -- Leg|nil: leg by name, or nil if missing
+trade:legs() -- iterator[Leg]
+trade:risk_graph() -- table: risk graph of the trade (up to 200 of these allowed per run)
+trade:export() -- mark this trade for the ONE/OptionNet-style CSV download shown in the 'Run Output' tab
+-- Leg
+leg.delta / leg.gamma / leg.vega / leg.theta / leg.iv -- number: greeks / iv of the leg
+leg.dte -- number: DTE of the leg
+leg.expiration -- string: expiration of the leg
+leg.mid -- number: current mid of the leg
+leg.mid_pnl -- number: simple mid-to-mid pnl of the leg; ignores spread_cost, commission, and slippage
+leg.spread -- number: approximate bid/ask spread of the leg
+leg.name -- string: name of the leg
+leg.qty -- number: quantity of the leg
+leg.selector -- selector: selector of the leg
+leg.side -- string: side of the leg
+leg.strike -- number: strike of the leg
+-- Selector
+Delta(number) -- place leg at this delta (use negative number for puts)
+TradeDelta(number) -- get the trade-delta to the given number (accounts for qty etc.). often useful for final leg to get trade to flat (or other delta).
+Strike(number) -- select by strike
+Mid(number) -- select by mid
+Theta(number) -- select by theta
+Vega(number) -- select by vega
+Gamma(number) -- select by gamma
+-- TradeLeg (Put or Call)
+Put(name: string, selector: Selector, dte: number, qty: number) -- create a put leg
+Call(name: string, selector: Selector, dte: number, qty: number) -- create a call leg
+-- Globals
+underlying_price -- number: underlying price of the index/stock/etf
+date -- date: date of the simulation. with attributes: day_of_week (string), day (int), month (int), year (int), hour (24-hour time), minute, second
+date.day_of_week -- string: "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
+last_trade -- Trade: last trade opened. May be nil if no trades have been opened yet or if most recent trade has been closed.
+O -- table: lets user store any data they want in the script that persists between ticks.
+O[trade.id] = trade.pnl -- store the pnl of the trade
+sim_params -- table: simulation parameters (set via top-level sim_params lines)
+sim_params.starting_cash -- number: starting cash (default 40000)
+sim_params.start_date -- string|nil: "YYYY-MM-DD" (default nil = first archive day)
+sim_params.end_date -- string|nil: "YYYY-MM-DD" (default nil = last archive day)
+sim_params.commission -- number: per-contract commission (default 1.08)
+sim_params.slippage -- number: per-contract slippage (default 3.00)
+sim_params.spread_cost -- number: fill aggressiveness in [0..1]; 1.0 = buy ask/sell bid (legacy "Natural"), 0.5 = mid, 0.0 = buy bid/sell ask (default 0.5). Additive with sim_params.slippage.
+-- Note: only top-level lines starting with "sim_params" are applied before the run.
+-- Moving Averages (MA)
+MA:EMA(period: number) -- number: EMA of the last period elements up to 200
+MA:SMA(period: number) -- number: SMA of the last period elements up to 200
+-- Plotting
+plots:add(title: string, y: number, plot_type: "histogram"|"scatter"|"bar", opts: table[bins: option[number], color: option[string], symbol: option[string], date: option[string], hovertext: option[string], trace: option[string]]) -- plot a value y vs x. plot_type is a PlotType enum.
+plots:add("# of trades on", portfolio.n_open_trades, "histogram", {bins = 20})
+plots:add("# of trades vs date", portfolio.n_open_trades, "scatter", {date = tostring(date), hovertext = string.format("%s open=%d", tostring(date), portfolio.n_open_trades)})
+-- if the plot name starts with "main_" then it will be plotted on the second y-axis. only works for scatter at this time.
+plots:add("main_underlying", underlying_price, "scatter", {date = tostring(date), symbol="x", hovertext = string.format("%s underlying=%.2f", tostring(date), underlying_price)})
+
+[1] This is an expensive operation, don't do it each tick

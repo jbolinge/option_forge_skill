@@ -1,0 +1,728 @@
+
+OptionForge Lua API Documentation
+
+This page documents the OptionForge Lua API. For the main app, see OptionForge. For parameter sweeps, see Grid Search.
+Need help with OptionForge? [option-forge GPT] is a custom GPT on OpenAI that can answer questions about the Lua API and help with OptionForge strategy ideas, implementation, and debugging.
+Table of Contents
+
+    General
+    Portfolio Management
+    Trade Operations
+    Leg Management
+    Leg Properties
+    Option Selectors
+    Moving Averages
+    Global Variables
+    Plotting
+    Complete Examples
+
+General
+OptionForge uses Luau. See the Lua cheatsheet if you need a refresher.
+
+Your script runs on every tick. Gate entries, but usually manage exits and adjustments every tick.
+
+The quick example below covers most common patterns.
+
+Run title templates: the first-line comment (-- ...) becomes the run title and supports interpolation like {dte}, {sim_params.starting_cash}, or {dte + 5}. Use \{ and \} for literal braces. A top-level return can prevent local placeholders from resolving.
+Quick Example (See Complete Examples for more)
+
+-- Put Credit Spread (dte={dte}, qty={qty})
+
+-- Optional sim params (defaults: $40k and full archive date range)
+sim_params.starting_cash = 40000
+sim_params.start_date = "2019-01-02"
+sim_params.end_date = "2023-12-29"
+sim_params.commission = 1.08
+sim_params.slippage = 3.00
+sim_params.spread_cost = 0.5 -- optional, 0..1 (1 = buy ask/sell bid, 0.5 = mid)
+dte = 90
+qty = 1
+
+if date.day_of_week == "Mon" and portfolio.n_open_trades < 5 then
+    trade = portfolio:new_trade()
+    trade:add_leg(Put("SP", Delta(-10), dte, -qty))
+    -- use the short put strike to place the long put 50 points lower
+    sp_strike = trade:leg("SP").strike
+    trade:add_leg(Put("LP", Strike(sp_strike - 50), dte, qty))
+    print(trade)
+end
+-- manage open trades every tick
+for _, trade in portfolio:trades() do
+    if trade.pnl > 200 or trade.pnl < -500 then
+        trade:close(trade.pnl > 0 and "PT" or "SL") -- PT or SL
+    elseif trade.dit > 50 or trade.dte < 20 then
+        trade:close("DIT")
+    end
+end
+
+Portfolio Management
+new_trade n_open_trades trades history pnl value delta/theta iv last_trade count trade
+portfolio:new_trade(tag?)
+
+Creates a new empty trade in the portfolio, optionally tagged with a string.
+
+Returns: Trade object
+portfolio.n_open_trades
+
+Number of open trades in the portfolio.
+
+Returns: number
+portfolio:trades(tag?)
+
+Returns an iterator over open trades in the portfolio (yields index, trade). If tag is provided, only trades with an exact matching tag are yielded. nil returns all open trades.
+
+Returns: iterator over Trade objects
+
+for _, trade in portfolio:trades() do
+    print(trade.pnl)
+end
+
+portfolio:history()
+
+Returns the PnL history of the portfolio.
+
+Returns: table of numbers
+
+local history = portfolio:history()
+for i, pnl in ipairs(history) do print(i, pnl) end
+
+portfolio:pnl()
+
+Current portfolio profit and loss.
+
+Returns: number
+portfolio:value()
+
+Current portfolio value (PnL + starting cash).
+
+Returns: number
+portfolio:delta() / portfolio:gamma() / portfolio:vega() / portfolio:theta()
+
+Current portfolio greeks.
+
+Returns: number
+
+if portfolio:delta() > 10 then -- Adjust if delta too high
+    -- Hedging logic
+end
+
+portfolio:iv()
+
+Vega-weighted average implied volatility across all open legs in the portfolio. Same semantics as trade.iv but aggregated across all trades from raw numerator/denominator (not a mean of per-trade IVs).
+
+Returns: number
+portfolio:last_trade()
+
+Most recently opened trade.
+
+Returns: Trade object
+portfolio:count(key: string, inc: option[number])
+
+Counts custom events for the final User Counts table.
+
+Note: trade:close("reason") already increments that reason.
+
+Parameters: key (string) - key to count, inc (number) - amount to increment by
+
+portfolio:count("ManualEvent", 2) -- increment the count of "ManualEvent" by 2
+portfolio:count("ManualEvent") -- increment the count of "ManualEvent" by 1
+portfolio:count("ManualEvent", -1) -- decrement the count of "ManualEvent" by 1
+                
+
+portfolio:trade(id)
+
+Trade by ID.
+
+Parameters: id (number) - ID of the trade
+
+Returns: Trade object
+Trade Operations
+pnl mid id dte dit delta/gamma/vega/theta iv close cash erase add_leg close_leg adjust leg risk_graph export
+trade.pnl
+
+Profit and loss of the trade.
+
+Returns: number
+trade.mid
+
+Current mid value of the trade (sum of leg mid prices with quantity and multiplier).
+
+Returns: number
+
+if trade.mid < -2000 then trade:close() end
+
+trade.cash
+
+Cash used or made from the trade.
+
+Returns: number
+trade:risk_graph()
+
+Adds the trade to the Risk Graph tab. Up to 200 graphs are allowed per run.
+
+Returns: table
+
+if trade.pnl < - 5000 -- let's see what's happening
+    trade:risk_graph()
+end
+
+trade:export()
+
+Marks the trade for inclusion in the ONE/OptionNet export CSV download. Idempotent
+trade.dit
+
+Maximum days in trade.
+
+Returns: number
+trade.dte
+
+Minimum days to expiration of the trade.
+
+Returns: number
+
+if trade.dte < 7 then trade:close() end
+
+trade.id
+
+Id of the trade.
+
+Returns: number
+trade.delta / trade.gamma / trade.vega / trade.theta
+
+Trade-level greeks. Each is the signed, quantity-weighted sum across open legs (times contract multiplier).
+
+Returns: number
+
+if math.abs(trade.delta) > 5 then
+    -- adjust the leg named LP to make the trade delta neutral (0). Accounts for quantity of named leg.
+    trade:adjust(TradeDelta(0), "LP")
+end
+
+trade.iv
+
+Vega-weighted average implied volatility across open legs. Chosen so that trade.vega * (trade.iv - prev_trade.iv) approximates the vega bucket in tick-level PnL attribution. Returns 0 when total vega is near zero (e.g. no open legs, or longs and shorts cancel).
+
+For skew-sensitive analysis, read per-leg IV via trade:leg(name).iv instead.
+
+Returns: number
+
+-- per-tick PnL decomposition against user-maintained prev state.
+local p = prev[trade.id]
+if p then
+    local dS = underlying_price - p.underlying_price
+    p.delta_pnl = p.delta_pnl + p.delta * dS
+    p.gamma_pnl = p.gamma_pnl + 0.5 * p.gamma * dS * dS
+    p.vega_pnl  = p.vega_pnl  + p.vega  * (trade.iv  - p.iv) * 100
+    p.theta_pnl = p.theta_pnl + p.theta * (trade.dit - p.dit)
+else
+    p = { delta_pnl = 0, gamma_pnl = 0, vega_pnl = 0, theta_pnl = 0 }
+    prev[trade.id] = p
+end
+-- snapshot current state so next tick can diff against it
+p.underlying_price, p.dit, p.iv = underlying_price, trade.dit, trade.iv
+p.delta, p.gamma, p.vega, p.theta = trade.delta, trade.gamma, trade.vega, trade.theta
+
+trade:close(option[string], option[table])
+
+Closes all legs in the trade, or partially closes specific legs when a table is provided.
+
+Parameters: reason (string) - optional reason label
+
+Passing a reason also increments that key in User Counts.
+
+Parameters: peel (table) - optional map of leg_name => qty_to_reduce. Qty sign is ignored.
+
+if trade.pnl > 500 then trade:close("ProfitTargetHit") end
+trade:close("scale-down", { UL = 1, shorts = 2, LL = 1 })
+-- NOTE: full close/erase invalidates the trade handle, but peel closes keep it open.
+			
+
+trade:erase(option[string])
+
+Removes the trade and its commissions. Useful for bad data or invalid setups.
+
+Parameters: reason (string) - optional reason label
+
+Passing a reason increments that key in User Counts. Without a reason, erase is incremented for backward compatibility.
+trade:add_leg(TradeLeg)
+
+Adds a new leg to the trade.
+
+Parameters: TradeLeg (created using Put() or Call())
+
+Leg names must be unique within an open trade.
+
+trade:add_leg(Call("LC", Delta(30), 30, 1))
+trade:add_leg(Put("SP", Delta(-30), 30, -1))
+
+trade:close_leg(name: str, option[erase: bool])
+
+Closes one leg.
+
+name (string) - name of the leg to close
+
+erase (boolean) - optional, default false. If true, the leg is treated as if it never existed.
+
+local lc = trade:leg("LC")
+if lc ~= nil and lc.mid > 500 then
+    trade:close_leg(lc.name)
+end
+
+trade:adjust(selector, name)
+
+Adjusts a leg of the trade using a selector.
+
+Parameters:
+
+    selector: Selector to use for adjustment
+    name (string): Name of the leg to adjust
+
+Returns: boolean (success)
+
+-- Adjust leg "LP" to make trade delta -5. Accounts for quantity of named leg.
+trade:adjust(TradeDelta(-5), "LP")
+
+trade:leg(name)
+
+Gets a specific leg by name, or nil when that leg is not present.
+
+Parameters: name (string) - name of the leg
+
+Returns: Leg object or nil
+
+local my_leg = trade:leg("LC")
+print(my_leg.strike, my_leg.mid, my_leg.mid_pnl)
+
+trade:legs()
+
+Returns an iterator over the trade's current open legs (yields index, leg).
+
+Returns: iterator over Leg objects
+
+for _, leg in trade:legs() do
+    print(leg.name, leg.qty, leg.strike)
+end
+
+Leg Management
+Put Call
+Put(name, selector, dte, qty)
+
+Creates a put option leg.
+
+Parameters:
+
+    name (string): Identifier for the leg
+    selector: Option selector (Delta, Strike, etc.)
+    dte (number): Days to expiration
+    qty (number): Quantity (negative for short)
+
+local short_put = Put("SP", Delta(-30), 45, -1)
+
+Call(name, selector, dte, qty)
+
+Creates a call option leg.
+
+Parameters: Same as Put()
+Leg Properties
+leg.delta / leg.gamma / leg.vega / leg.theta / leg.iv
+
+Greeks and implied volatility of the leg.
+
+Returns: number
+
+local leg_delta = trade:leg("LC").delta
+
+leg.dte
+
+Days to expiration of the leg.
+
+Returns: number
+leg.expiration
+
+Expiration date of the leg as a string.
+
+Returns: string
+leg.mid
+
+Current mid price of the leg.
+
+Returns: number
+leg.mid_pnl
+
+Gross mid-to-mid leg PnL. Excludes spread_cost, commission, and slippage.
+
+Returns: number
+leg.spread
+
+Approximate bid/ask spread of the leg.
+
+Returns: number
+leg.name
+
+Name of the leg.
+
+Returns: string
+leg.qty
+
+Quantity of the leg.
+
+Returns: number
+leg.side
+
+Side of the leg ("put" or "call").
+
+Returns: string
+leg.strike
+
+Strike price of the leg.
+
+Returns: number
+Option Selectors
+Delta TradeDelta Strike Mid Theta Vega Gamma
+Delta(number)
+
+Selects an option by delta value (use negative for puts).
+
+Call("LC", Delta(30.0), 30, 1)
+Put("SP", Delta(-30), 30, -1)
+
+TradeDelta(number)
+
+Adjusts a leg to achieve a specific trade-level delta. Accounts for quantity.
+
+trade:adjust(TradeDelta(-5), "LP")
+
+Strike(number)
+
+Selects an option by strike price.
+
+Call("ATM", Strike(underlying_price), 30, 1)
+
+Mid(number)
+
+Selects an option by mid price.
+
+Call("Cheap", Mid(1.0), 30, 10)
+
+Theta(number)
+
+Selects an option by theta value.
+
+Call("HighDecay", Theta(-0.5), 30, -1)
+
+Vega(number)
+
+Selects an option by vega value.
+
+Call("VolSensitive", Vega(0.2), 45, 1)
+
+Gamma(number)
+
+Selects an option by gamma value.
+
+Call("HighGamma", Gamma(0.05), 15, 1)
+
+Moving Averages
+MA:EMA(period)
+
+Returns: number. The EMA of the underlying price over the last period elements.
+
+local ema = MA:EMA(20)
+print(ema) -- 20-day EMA of underlying price
+
+MA:SMA(period)
+
+Returns: number. The SMA of the underlying price over the last period elements.
+Global Variables
+CSV user data: See CSV User Data for how to load custom indicators into user.
+underlying_price
+
+Current price of the underlying asset (index/stock/ETF).
+
+Type: number
+
+if underlying_price < 20 then -- VIX is low
+    -- Enter positions
+end
+
+date
+
+simulation date with attributes: day_of_week, day, month, year, hour, minute, second
+
+Type: date
+
+if date.day_of_week == "Mon" and date.hour == 10 then -- Entry on Monday at 10am EST
+    -- Enter positions
+    -- Manage positions
+end
+
+last_trade
+
+Last trade opened. May be nil if no trades have been opened yet or if most recent trade has been closed.
+
+Type: Trade
+
+if last_trade ~= nil and last_trade.dit >= 3 then
+    -- open new trade ... not shown.
+end
+
+O
+
+Global writable table that persists between ticks.
+
+-- store a per-trade value and compare against it on later ticks
+if trade.pnl > O[trade.id] + 400 then
+    trade:close()
+end
+O[trade.id] = trade.pnl
+
+user
+
+Table populated from your CSV indicator data. Column headers become fields, e.g. user.signal.
+
+Type: table
+
+Set sim_params.csv to a public URL.
+
+CSV format (public URL):
+
+datetime,signal,vol
+2025-10-12 10:30:00,0.42,18.1
+2025-10-12 10:31:00,0.38,18.3
+
+The engine uses the matching row, or the closest earlier row. If none exists, the value is nil. A warning is printed when the chosen row is older than the previous tick in the interval.
+
+CSV user data requires an active subscription.
+
+Limits: max 12 columns, max 35,000 rows, numeric values only (f32), and valid Lua identifier column names. The datetime column is required and must be named datetime or Date (case-insensitive). Accepted formats: YYYY-MM-DD, YYYY-MM-DD HH:MM, or YYYY-MM-DD HH:MM:SS with no timezone. Date-only values are treated as 23:59:59 to avoid lookahead. Value column headers are case-sensitive (user.ATR != user.atr).
+
+if user.signal and user.signal > 0.5 then
+    -- trade logic
+end
+
+Cache: We cache one dataset per account for 3 hours. If your data changes, publish it at a new URL to refresh immediately.
+sim_params
+
+Simulation parameters. Set these before running (top-level assignments).
+
+Type: SimParameters
+
+Fields:
+
+    starting_cash (number): starting portfolio cash (default 40000)
+    start_date (string or nil): "YYYY-MM-DD" (default nil = first archive day)
+    end_date (string or nil): "YYYY-MM-DD" (default nil = last archive day)
+    commission (number): per-contract commission (default 1.08)
+    slippage (number): per-contract slippage (default 3.00)
+    spread_cost (number): fill aggressiveness in [0,1]; 1.0 = buy ask/sell bid, 0.5 = mid, 0.0 = buy bid/sell ask (default 0.5). This is additive with sim_params.slippage.
+    archive (string or nil): named archive (for example "SPX", "VIX", "NDX", or "RUT"), requires server-side archive registry configuration
+    csv (string or nil): public CSV URL for user data (see CSV User Data)
+    tick_interval (string): "day", "1-day", "hour", "1-hour", or minutes ("1-minute", "5-minute", "15-minute", "30-minute"). The resolution available depends on the archive. Defaults to "day".
+    tick_time (number or "HH:MM"): daily sample time in HHMM (default 1000). Use "10:30" to specify a time string. Use 9999 to pick a random available time per run. If the chosen time is not present anywhere in the archive, the run errors. If missing on a given day, the nearest tick is used and a warning is logged.
+
+sim_params.starting_cash = 40000
+sim_params.start_date = "2019-01-02"
+sim_params.end_date = "2023-12-29"
+sim_params.commission = 1.08
+sim_params.slippage = 3.00
+sim_params.spread_cost = 0.5
+
+-- Daily ticks at 10:00 (or nearest available that day)
+-- Available named archives commonly include "SPX", "VIX", "NDX", and "RUT"
+sim_params.archive = "SPX"
+sim_params.tick_interval = "day"
+sim_params.tick_time = "10:00"
+
+-- Random daily time (one random time per run)
+-- sim_params.tick_time = 9999
+
+-- Hourly ticks
+-- sim_params.tick_interval = "hour"
+
+-- 15-minute ticks
+-- sim_params.tick_interval = "15"
+-- sim_params.tick_interval = "15-minute"
+
+Note: Only top-level lines that start with sim_params are evaluated before the run.
+Plotting (advanced, but useful)
+plots:add(title, y, plot_type, opts)
+
+Creates custom plots from Lua data. Use trace to add multiple series to one plot.
+
+Titles starting with "main_" plot on the main chart's second y-axis.
+Only scatter plots are supported there.
+Other plots go to User Plots.
+
+Parameters:
+
+    title (string): Title of the plot
+    y (number): Value to plot
+    plot_type (string): Type of plot. "histogram", "scatter", "bar"
+    opts (table): Options for the plot. "bins" (number), "color" (string), "symbol" (string), "date" (string), "hovertext" (string), "trace" (string)
+
+See Plotly Scatter for possible symbols.
+
+plots:add("n_trades", portfolio.n_open_trades, "histogram", {bins = 20, color="red"})
+plots:add("n_trades_time", portfolio.n_open_trades, "scatter", {
+    date=tostring(date),
+    color="#E500E5",
+    symbol="x",
+    hovertext=string.format("%s open=%d", tostring(date), portfolio.n_open_trades)
+})
+plots:add("debit", trade.cash, "histogram")
+
+for _, trade in portfolio:trades() do
+    plots:add("trade_pnl", trade.pnl, "scatter", {
+        date=tostring(date),
+        trace=tostring(trade.id),
+        hovertext=string.format("trade=%s pnl=%.2f dit=%d", tostring(trade.id), trade.pnl, trade.dit)
+    })
+end
+
+if portfolio.n_open_trades < MAX_TRADES and (portfolio:last_trade() == nil or portfolio:last_trade().dit > 2) then 
+    O[trade.id] = trade.theta
+end
+for _, trade in portfolio:trades() do
+    if math.abs(trade.pnl) > 10000 or trade.dit > 50 then
+        plots:add("starting theta vs final pnl", O[trade.id], "scatter", {x=trade.pnl, symbol='o'})
+        trade:close()
+    end
+end
+
+Complete Examples
+Put Credit Spread Strategy
+
+-- Put Credit Spread Example (dte={dte}, qty={qty})
+-- Optional sim params (defaults: $40k and full archive date range)
+sim_params.starting_cash = 40000
+sim_params.start_date = "2019-01-02"
+sim_params.end_date = "2023-12-29"
+sim_params.commission = 1.08
+sim_params.slippage = 3.00
+dte = 45
+qty = 2
+
+if date.day_of_week == "Tue" and portfolio.n_open_trades < 5 and MA:EMA(10) > MA:EMA(20) then
+    trade = portfolio:new_trade()
+    trade:add_leg(Put("SP", Delta(-10), dte, -qty))
+    -- use the short put strike to place the long put
+    local sp = trade:leg("SP")
+    trade:add_leg(Put("LP", Strike(sp.strike - 50), dte, qty))
+    print(trade)
+    -- erase malformed fills so they do not affect stats
+    local dist = sp.strike - trade:leg("LP").strike
+    if dist > 75 or dist < 25 then trade:erase() end 
+end
+for _, trade in portfolio:trades() do
+    if math.abs(trade.pnl) > 10000 then
+       trade:erase()
+    elseif trade.pnl > 300 or trade.pnl < -2000 then
+        trade:close(trade.pnl > 0 and "PT" or "SL")
+    elseif trade.dte < 2 then
+        trade:close("Days in Trade")
+    end
+end
+
+Balanced Butterfly With Delta Hedge
+
+-- Balanced Butterfly with Delta Hedge (dte={dte}, qty={qty})
+-- Optional sim params (defaults: $40k and full archive date range)
+sim_params.starting_cash = 40000
+sim_params.start_date = "2019-01-02"
+sim_params.commission = 1.08
+sim_params.slippage = 3.00
+local dte = 90
+local qty = 20
+
+if date.day_of_week == "Mon" and (last_trade == nil or last_trade.dit > 2) and portfolio.n_open_trades < 4 then
+    local trade = portfolio:new_trade()
+    trade:add_leg(Put("UL", Delta(-45), dte, qty))
+    -- cache legs when their strikes are reused below
+    local ul = trade:leg("UL")
+    trade:add_leg(Put("SP", Strike(ul.strike - 50), dte, -2 * qty))
+    local sp = trade:leg("SP")
+    local width = ul.strike - sp.strike
+    trade:add_leg(Put("LL", Strike(sp.strike - width), dte, qty))
+    trade:add_leg(Call("LC", TradeDelta(0), dte - 30, 1))
+    -- keep only the intended 50-wide butterfly
+    if width ~= 50 then
+        trade:erase()
+    else
+        -- save entry theta for the profit target rule
+        O[trade.id] = { initial_theta = trade.theta }
+        trade:risk_graph()
+        print(trade)
+    end
+end
+
+for _, trade in portfolio:trades() do
+    local initial_theta = O[trade.id].initial_theta
+    if trade.dit >= 35 then
+        trade:close("DIT")
+    elseif trade.dte <= 30 then
+        trade:close("DTE")
+    elseif trade.pnl > 30 * initial_theta then
+        trade:close("PT")
+    elseif trade.pnl < -0.5 * underlying_price then
+        trade:close("SL")
+    elseif trade.theta < 0 then
+        trade:close("low theta")
+    else
+        -- add a hedge only once after price moves below the short strike
+        local sp = trade:leg("SP")
+        if underlying_price < sp.strike and trade:leg("HP") == nil then
+            trade:add_leg(Put("HP", Mid(1.0), trade.dte, 1))
+            portfolio:count("hedge added")
+        elseif math.abs(trade.delta) > 5 then
+            -- use UL to bring the whole trade back toward flat delta
+            trade:adjust(TradeDelta(0), "UL")
+        end
+    end
+end
+
+Dynamic Delta Adjustment
+
+-- Dynamic Delta Adjustment (dte={dte}, qty={qty})
+local dte = 30
+local qty = 1
+if date.day_of_week == "Mon" and portfolio.n_open_trades < 3 then
+    local trade = portfolio:new_trade()
+    trade:add_leg(Put("ShortPut", Delta(-30), dte, -qty))
+    trade:add_leg(Put("LongPut", Delta(-50), dte, qty))
+end
+
+for _, trade in portfolio:trades() do
+    if trade.pnl > 1000 then
+        trade:close("Profit Target")
+    elseif trade.pnl < -1000 then
+        trade:close("Stop Loss")
+    elseif date.day_of_week == "Mon" then
+        trade:adjust(TradeDelta(-3), "ShortPut")
+    elseif date.day_of_week == "Fri" then
+        trade:adjust(TradeDelta(2), "ShortPut")
+    else
+        trade:adjust(TradeDelta(0), "ShortPut")
+    end
+end
+
+Put Back Ratio
+
+-- Put Back Ratio (dte={dte}, short_qty={short_qty}, long_qty={long_qty})
+local short_qty = 2
+local long_qty = 3
+local dte = 45
+if date.day_of_week == "Tue" then
+    trade = portfolio:new_trade()
+    trade:add_leg(Put("SP", Delta(-2), dte, -short_qty))
+    sp_mid = trade:leg("SP").mid
+    print("sp_mid:", sp_mid)
+    -- size the long put from the short put's premium
+    trade:add_leg(Put("LP", Mid(sp_mid / long_qty - 1.0), dte, long_qty))
+    print(trade)
+end
+for _, trade in portfolio:trades() do
+    if trade.pnl > 1000 or trade.pnl < -2000 then
+        trade:close(trade.pnl > 0 and "PT" or "SL")
+    end
+end
+
