@@ -13,12 +13,12 @@ If the seed above is empty, ask the user for a one-line description before conti
 
 ## First response — code first, talk later
 
-1. **Ground yourself quickly.** Read `docs/brief_api.txt` end-to-end and skim ONE reference `.lua` that matches the structure type:
+1. **Ground yourself quickly.** Read `docs/brief_api.txt` end-to-end for a quick scan of the API surface, and keep `docs/api_context.md` open for deeper lookups (full parameter details, worked examples, conventions). Then skim ONE reference `.lua` that matches the structure type:
    - spread → `docs/put_credit_spread.lua`
    - butterfly / hedge-on-breach → `docs/balanced_butterfly.lua`
    - ratio → `docs/put_back_ratio.lua`
    - delta management → `docs/dynamic_delta.lua`
-   Do not read more than you need. `docs/api_docs.txt` is only for specific lookups when `brief_api.txt` is insufficient.
+   Do not read more than you need. Consult `docs/api_context.md` only for specific API questions `brief_api.txt` can't answer.
 
 2. **Ask at most ONE small clarifier batch, and only if critical.** Use `AskUserQuestion` only when the seed is so underspecified that writing a draft would mean inventing half the strategy (e.g. `/strategy iron condor` with no delta/width/DTE — ask 1–3 questions). If the seed names a structure plus enough parameters to draft something reasonable, skip questions entirely and go straight to code. Prefer "assume a default, let the user correct" over "stall for clarification."
 

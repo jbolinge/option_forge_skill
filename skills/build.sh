@@ -5,6 +5,7 @@ cd "$(dirname "$0")"
 rm -f option-forge-strategy.zip
 
 cp ../docs/brief_api.txt option-forge-strategy/reference/
+cp ../docs/api_context.md option-forge-strategy/reference/
 cp ../docs/put_credit_spread.lua option-forge-strategy/reference/
 cp ../docs/balanced_butterfly.lua option-forge-strategy/reference/
 cp ../docs/put_back_ratio.lua option-forge-strategy/reference/

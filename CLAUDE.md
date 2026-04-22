@@ -11,9 +11,10 @@ Work in this repo almost always means: reading/writing Lua strategies against th
 ## Where the API is documented
 
 - `docs/brief_api.txt` — one-page dense cheat sheet. Start here to orient.
-- `docs/api_docs.txt` — long-form reference with full parameter/return details and examples.
+- `docs/api_context.md` — comprehensive API reference (SYSTEM-style prompt context: full API surface, Important Guidelines, Common Patterns, Output Format). Use for deep lookups after `brief_api.txt`.
 - `docs/*.lua` — runnable reference strategies (`balanced_butterfly`, `put_credit_spread`, `dynamic_delta`, `put_back_ratio`). Mirror their structure when writing new strategies.
 - `docs/urls.txt` — hosted docs at `option-forge.com/docs/` are authoritative if the local snapshots drift.
+- `docs/api_docs.txt` — older long-form reference, superseded by `api_context.md`. Kept for archival lookups.
 
 ## Lua dialect
 

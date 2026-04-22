@@ -7,13 +7,13 @@ You are helping the user author an OptionForge Lua strategy. OptionForge (option
 
 ## First response — code first, talk later
 
-1. **Ground yourself quickly.** Read `reference/brief_api.txt` end-to-end and skim ONE bundled reference `.lua` that matches the structure type:
+1. **Ground yourself quickly.** Read `reference/brief_api.txt` end-to-end for a quick scan of the API surface, and keep `reference/api_context.md` open for deeper lookups (full parameter details, worked examples, conventions). Then skim ONE bundled reference `.lua` that matches the structure type:
    - spread → `reference/put_credit_spread.lua`
    - butterfly / hedge-on-breach → `reference/balanced_butterfly.lua`
    - ratio → `reference/put_back_ratio.lua`
    - delta management → `reference/dynamic_delta.lua`
 
-   Don't read more than you need. If `brief_api.txt` is insufficient for a specific API question, fetch `https://option-forge.com/docs/` for the full reference rather than guessing.
+   Don't read more than you need. If both `brief_api.txt` and `api_context.md` leave a question open, fetch `https://option-forge.com/docs/` rather than guessing.
 
 2. **Treat the user's invoking message as the strategy seed.** If the seed is empty or so underspecified that drafting would mean inventing half the strategy (e.g. "iron condor" with no delta/width/DTE), ask 1–3 tight clarifying questions inline. Otherwise skip questions and go straight to code. Prefer "assume a default, let the user correct" over stalling for clarification.
 

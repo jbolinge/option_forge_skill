@@ -7,7 +7,7 @@ Gives Claude the ability to write Lua strategies for [OptionForge](https://optio
 ## What's in here
 
 - `strategies/` — finished `.lua` strategies
-- `docs/` — API cheat sheet (`brief_api.txt`), full reference (`api_docs.txt`), and runnable reference strategies
+- `docs/` — API cheat sheet (`brief_api.txt`), comprehensive API context (`api_context.md`), and runnable reference strategies
 - `skills/option-forge-strategy/` — portable [claude.ai Skill](https://www.anthropic.com/news/skills) bundle
 - `skills/option-forge-strategy.zip` — prebuilt, ready-to-upload Skill zip (checked in)
 - `skills/build.sh` — rebuilds the zip from `skills/option-forge-strategy/` and the latest `docs/`
@@ -28,7 +28,7 @@ If you've edited the Skill sources under `skills/option-forge-strategy/` or upda
 ./skills/build.sh
 ```
 
-This copies the latest `docs/brief_api.txt` and reference `.lua` files into the bundle and overwrites `skills/option-forge-strategy.zip`.
+This copies the latest `docs/brief_api.txt`, `docs/api_context.md`, and reference `.lua` files into the bundle and overwrites `skills/option-forge-strategy.zip`.
 
 ### 2. Upload to claude.ai
 
