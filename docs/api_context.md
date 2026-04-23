@@ -505,7 +505,8 @@ Fields:
 - slippage (number): per-contract slippage (default 3.00)
 - spread_cost (number): fill aggressiveness in [0,1]; 1.0 = buy ask/sell bid, 0.5 = mid, 0.0 = buy bid/sell ask (default 0.5). This is additive with sim_params.slippage.
 - archive (string or nil): named archive (for example "SPX",
-                    "VIX", "NDX", or "RUT"), requires server-side archive registry configuration
+                    "VIX", "NDX", "RUT", or "SPX-30" for 30-minute SPX data),
+                    requires server-side archive registry configuration
 - csv (string or nil): public CSV URL for user data (see
                     CSV User Data)
 - tick_interval (string): "day", "1-day", "hour", "1-hour", or
@@ -528,7 +529,7 @@ sim_params.spread_cost = 0.5
 
 ```lua
 -- Daily ticks at 10:00 (or nearest available that day)
--- Available named archives commonly include "SPX", "VIX", "NDX", and "RUT"
+-- Available named archives commonly include "SPX", "VIX", "NDX", "RUT", and "SPX-30" (30-minute SPX)
 sim_params.archive = "SPX"
 sim_params.tick_interval = "day"
 sim_params.tick_time = "10:00"
