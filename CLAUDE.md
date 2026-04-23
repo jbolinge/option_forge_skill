@@ -14,7 +14,10 @@ Work in this repo almost always means: reading/writing Lua strategies against th
 - `docs/api_context.md` — comprehensive API reference (SYSTEM-style prompt context: full API surface, Important Guidelines, Common Patterns, Output Format). Use for deep lookups after `brief_api.txt`.
 - `docs/*.lua` — runnable reference strategies (`balanced_butterfly`, `put_credit_spread`, `dynamic_delta`, `put_back_ratio`). Mirror their structure when writing new strategies.
 - `docs/urls.txt` — hosted docs at `option-forge.com/docs/` are authoritative if the local snapshots drift.
+- `option-forge.com/changes` — upstream changelog of API/platform updates. **Reactive check only**: when a script errors or the user reports behavior that doesn't match the docs above, fetch this page via WebFetch before assuming the local snapshots are correct. Don't fetch it proactively on every session.
 - `docs/api_docs.txt` — older long-form reference, superseded by `api_context.md`. Kept for archival lookups.
+
+If the changelog reveals API additions or changes not reflected in `docs/api_context.md` or `docs/brief_api.txt`, summarize the drift and ask the user whether to update the snapshots. Do not silently edit the local doc files — even for purely additive changes.
 
 ## Lua dialect
 

@@ -13,7 +13,7 @@ You are helping the user author an OptionForge Lua strategy. OptionForge (option
    - ratio → `reference/put_back_ratio.lua`
    - delta management → `reference/dynamic_delta.lua`
 
-   Don't read more than you need. If both `brief_api.txt` and `api_context.md` leave a question open, fetch `https://option-forge.com/docs/` rather than guessing.
+   Don't read more than you need. If both `brief_api.txt` and `api_context.md` leave a question open, fetch `https://option-forge.com/docs/` rather than guessing. If a script errors or the user reports behavior that contradicts the bundled references, also check `https://option-forge.com/changes` — the upstream changelog — for recent API changes that may not yet be in the bundle. Flag any drift to the user rather than silently editing the references.
 
 2. **Treat the user's invoking message as the strategy seed.** If the seed is empty or so underspecified that drafting would mean inventing half the strategy (e.g. "iron condor" with no delta/width/DTE), ask 1–3 tight clarifying questions inline. Otherwise skip questions and go straight to code. Prefer "assume a default, let the user correct" over stalling for clarification.
 
