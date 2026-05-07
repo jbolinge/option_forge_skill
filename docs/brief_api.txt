@@ -27,7 +27,7 @@ trade:close_leg(name: string, option[erase]) -- close the leg named name. if era
 trade:erase(Option[string]) -- erase the trade and any commissions. passing a reason increments that User Counts key, otherwise "erase" is incremented.
 trade:leg(name: string) -- Leg|nil: leg by name, or nil if missing
 trade:legs() -- iterator[Leg]
-trade:risk_graph() -- table: risk graph of the trade (up to 200 of these allowed per run)
+trade:risk_graph() -- table: risk graph of the trade (up to 250 of these allowed per run)
 trade:export() -- mark this trade for the ONE/OptionNet-style CSV download shown in the 'Run Output' tab
 -- Leg
 leg.delta / leg.gamma / leg.vega / leg.theta / leg.iv -- number: greeks / iv of the leg
@@ -59,6 +59,7 @@ date.day_of_week -- string: "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"
 last_trade -- Trade: last trade opened. May be nil if no trades have been opened yet or if most recent trade has been closed.
 O -- table: lets user store any data they want in the script that persists between ticks.
 O[trade.id] = trade.pnl -- store the pnl of the trade
+forge_end -- function: define a top-level `function forge_end() ... end` to run once after the backtest. portfolio and O are still available.
 sim_params -- table: simulation parameters (set via top-level sim_params lines)
 sim_params.starting_cash -- number: starting cash (default 40000)
 sim_params.start_date -- string|nil: "YYYY-MM-DD" (default nil = first archive day)

@@ -154,7 +154,7 @@ Cash used or made from the trade.
 Returns: number
 
 ## trade:risk_graph()
-Adds the trade to the Risk Graph tab. Up to 200 graphs are allowed per run.
+Adds the trade to the Risk Graph tab. Up to 250 graphs are allowed per run.
 Returns: table
 
 ```lua
@@ -460,6 +460,16 @@ if trade.pnl > O[trade.id] + 400 then
     trade:close()
 end
 O[trade.id] = trade.pnl
+```
+
+## forge_end()
+Define this top-level function to run once after the backtest. portfolio and O are still available.
+
+```lua
+function forge_end()
+    O.final_value = portfolio:value()
+    print("final value", O.final_value)
+end
 ```
 
 ## user

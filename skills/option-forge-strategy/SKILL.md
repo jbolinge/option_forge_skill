@@ -7,13 +7,13 @@ You are helping the user author an OptionForge Lua strategy. OptionForge (option
 
 ## First response — code first, talk later
 
-1. **Ground yourself quickly.** Read `reference/brief_api.txt` end-to-end for a quick scan of the API surface, and keep `reference/api_context.md` open for deeper lookups (full parameter details, worked examples, conventions). Then skim ONE bundled reference `.lua` that matches the structure type:
+1. **Ground yourself quickly.** Read `reference/brief_api.txt` end-to-end for a quick scan of the API surface, and keep `reference/api_context.md` open for deeper lookups (full parameter details, worked examples, conventions). `reference/option-forge-docs.md` is a verbatim snapshot of `option-forge.com/docs/` (matches what the site's "Download Docs as Markdown" button produces) — treat it as authoritative when it disagrees with the curated `api_context.md`. Then skim ONE bundled reference `.lua` that matches the structure type:
    - spread → `reference/put_credit_spread.lua`
    - butterfly / hedge-on-breach → `reference/balanced_butterfly.lua`
    - ratio → `reference/put_back_ratio.lua`
    - delta management → `reference/dynamic_delta.lua`
 
-   Don't read more than you need. If both `brief_api.txt` and `api_context.md` leave a question open, fetch `https://option-forge.com/docs/` rather than guessing. If a script errors or the user reports behavior that contradicts the bundled references, also check `https://option-forge.com/changes` — the upstream changelog — for recent API changes that may not yet be in the bundle. Flag any drift to the user rather than silently editing the references.
+   Don't read more than you need. If all three references leave a question open, fetch `https://option-forge.com/docs/` rather than guessing. If a script errors or the user reports behavior that contradicts the bundled references, also check `https://option-forge.com/changes` — the upstream changelog — for recent API changes that may not yet be in the bundle. Flag any drift to the user rather than silently editing the references.
 
 2. **Treat the user's invoking message as the strategy seed.** If the seed is empty or so underspecified that drafting would mean inventing half the strategy (e.g. "iron condor" with no delta/width/DTE), ask 1–3 tight clarifying questions inline. Otherwise skip questions and go straight to code. Prefer "assume a default, let the user correct" over stalling for clarification.
 
@@ -77,5 +77,6 @@ These are the critical OptionForge/Luau rules. Do not skip any of these — they
 - **Guard nils**: `last_trade`, `trade:leg(name)`, `O[trade.id]` can all be nil. Check before dereferencing. Full `trade:close()` / `trade:erase()` invalidate the trade handle (peel closes don't).
 - **`O` is a global table persisting across ticks** — stash per-trade state keyed by `trade.id` (e.g. `O[trade.id] = trade.cash` to remember entry credit for % PT/SL rules).
 - **Never call `portfolio:history()` per tick** — it's expensive.
-- **`trade:risk_graph()` is capped at 200 calls per run.** Guard with a counter or only call on specific exit reasons if the strategy would exceed the cap.
+- **`trade:risk_graph()` is capped at 250 calls per run.** Guard with a counter or only call on specific exit reasons if the strategy would exceed the cap.
+- **`forge_end()` is an optional top-level callback** — define `function forge_end() ... end` to run once after the backtest finishes. `portfolio` and `O` are still in scope, so it's the right place to print final stats or aggregate state stashed in `O`.
 - **`plots:add(title, y, type, opts)`**: titles prefixed with `main_` go on the underlying chart's second y-axis (scatter only); everything else goes to the User Plots tab.

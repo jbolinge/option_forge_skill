@@ -12,12 +12,13 @@ Work in this repo almost always means: reading/writing Lua strategies against th
 
 - `docs/brief_api.txt` — one-page dense cheat sheet. Start here to orient.
 - `docs/api_context.md` — comprehensive API reference (SYSTEM-style prompt context: full API surface, Important Guidelines, Common Patterns, Output Format). Use for deep lookups after `brief_api.txt`.
+- `docs/option-forge-docs.md` — auto-generated snapshot of `option-forge.com/docs/`. Mirrors what the site's "Download Docs as Markdown" button produces. Refresh with `python3 tools/fetch_docs.py`. Authoritative when it disagrees with `api_context.md` (which is curated and may lag).
 - `docs/*.lua` — runnable reference strategies (`balanced_butterfly`, `put_credit_spread`, `dynamic_delta`, `put_back_ratio`). Mirror their structure when writing new strategies.
 - `docs/urls.txt` — hosted docs at `option-forge.com/docs/` are authoritative if the local snapshots drift.
 - `option-forge.com/changes` — upstream changelog of API/platform updates. **Reactive check only**: when a script errors or the user reports behavior that doesn't match the docs above, fetch this page via WebFetch before assuming the local snapshots are correct. Don't fetch it proactively on every session.
 - `docs/api_docs.txt` — older long-form reference, superseded by `api_context.md`. Kept for archival lookups.
 
-If the changelog reveals API additions or changes not reflected in `docs/api_context.md` or `docs/brief_api.txt`, summarize the drift and ask the user whether to update the snapshots. Do not silently edit the local doc files — even for purely additive changes.
+To refresh the doc snapshots, run `python3 tools/fetch_docs.py` (regenerates `docs/option-forge-docs.md` from the live site). The curated `api_context.md` and `brief_api.txt` still need manual edits when the live docs add/change API. If the changelog reveals API additions or changes not reflected in those curated files, summarize the drift and ask the user whether to update them. Do not silently edit the curated doc files — even for purely additive changes.
 
 ## Lua dialect
 
@@ -34,7 +35,8 @@ Things that aren't obvious from any single file:
 - **`O` is a global table that persists across ticks** — the standard place to stash per-trade state, usually keyed by `trade.id` (e.g. `O[trade.id] = { initial_theta = trade.theta }`).
 - **Guard `nil`**: `last_trade` may be nil; `trade:leg(name)` returns nil when the leg isn't present. Full `trade:close()` / `trade:erase()` invalidate the trade handle (peel closes don't).
 - **`portfolio:history()` is expensive** — don't call it every tick.
-- **`trade:risk_graph()` is capped at 200 per run.**
+- **`trade:risk_graph()` is capped at 250 per run.**
+- **`forge_end()`** is an optional top-level callback (`function forge_end() ... end`) that runs once after the backtest. `portfolio` and `O` remain in scope — useful for final aggregate stats.
 
 ## Script conventions (mirror these)
 
